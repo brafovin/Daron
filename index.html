@@ -3,123 +3,79 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Big Duck Chase</title>
+<title>Big Duck Chase 3D</title>
 <link rel="stylesheet" href="style.css" />
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+  }
+}
+</script>
 </head>
 <body>
-  <div id="app">
-    <header>
-      <h1>Big Duck Chase</h1>
-      <p class="tagline">Run from the duck. Toss a banana. Watch it slip.</p>
-    </header>
+  <div id="game-root">
+    <canvas id="view"></canvas>
 
-    <div id="main">
-      <div id="game-wrap">
-        <canvas id="game" width="900" height="560"></canvas>
-        <div id="hud">
-          <div class="hud-item">Time survived: <span id="time">0.0</span>s</div>
-          <div class="hud-item">Bananas: <span id="bananas">5</span></div>
-          <div class="hud-item">Slips caused: <span id="slips">0</span></div>
-        </div>
-        <div id="overlay" class="hidden">
-          <div id="overlay-content">
-            <h2 id="overlay-title">Caught!</h2>
-            <p id="overlay-sub">The duck got you.</p>
-            <button id="restart-btn">Play again</button>
-          </div>
-        </div>
+    <div id="hud" class="hidden">
+      <div class="hud-row">
+        <div class="hud-item">Time <span id="time">0.0</span>s</div>
+        <div class="hud-item">Peels <span id="bananas">0</span>/5</div>
+        <div class="hud-item">Slips <span id="slips">0</span></div>
       </div>
-
-      <aside id="panel">
-        <h2>Duck Customizer</h2>
-
-        <section>
-          <label>Preset</label>
-          <div id="presets" class="preset-row"></div>
-        </section>
-
-        <section>
-          <label for="bodyColor">Body color</label>
-          <input type="color" id="bodyColor" value="#ffd23f" />
-        </section>
-
-        <section>
-          <label for="headColor">Head color</label>
-          <input type="color" id="headColor" value="#1f5b3a" />
-        </section>
-
-        <section>
-          <label for="beakColor">Beak color</label>
-          <input type="color" id="beakColor" value="#f4861f" />
-        </section>
-
-        <section>
-          <label for="eyeColor">Eye color</label>
-          <input type="color" id="eyeColor" value="#1a1a1a" />
-        </section>
-
-        <section>
-          <label for="wingColor">Wing color</label>
-          <input type="color" id="wingColor" value="#eab308" />
-        </section>
-
-        <section>
-          <label for="size">Size <span id="sizeVal">90</span>px</label>
-          <input type="range" id="size" min="60" max="160" value="90" />
-        </section>
-
-        <section>
-          <label for="speed">Speed <span id="speedVal">1.8</span></label>
-          <input type="range" id="speed" min="80" max="320" value="180" />
-        </section>
-
-        <section>
-          <label for="skin">Skin style</label>
-          <select id="skin">
-            <option value="none">Plain</option>
-            <option value="mallard">Mallard markings</option>
-            <option value="rubber">Rubber duck gloss</option>
-            <option value="murder">Murder duck</option>
-            <option value="banana">Banana peel</option>
-            <option value="zombie">Zombie</option>
-            <option value="ninja">Ninja</option>
-          </select>
-        </section>
-
-        <section>
-          <label for="hat">Hat</label>
-          <select id="hat">
-            <option value="none">None</option>
-            <option value="top">Top hat</option>
-            <option value="party">Party hat</option>
-            <option value="crown">Crown</option>
-            <option value="cap">Backwards cap</option>
-            <option value="peel">Banana peel</option>
-          </select>
-        </section>
-
-        <section>
-          <label for="duckName">Name</label>
-          <input type="text" id="duckName" maxlength="18" value="Sir Quackington" />
-        </section>
-
-        <section class="controls-help">
-          <strong>Controls</strong>
-          <ul>
-            <li>Move: WASD / Arrows</li>
-            <li>Throw banana: Space or Click</li>
-            <li>Restart: R</li>
-          </ul>
-        </section>
-      </aside>
+      <div class="hud-center-tip" id="centerTip"></div>
     </div>
 
-    <footer>
-      <small>Tip: aim the banana where the duck is going, not where it is.</small>
-    </footer>
+    <div id="menu">
+      <div class="menu-card">
+        <h1>Big Duck Chase</h1>
+        <p class="tagline">A realistically-rendered duck runs after you. You run. You throw banana peels. It slips. Hilarity.</p>
+
+        <div class="menu-section">
+          <label for="playerName">Your name</label>
+          <input id="playerName" type="text" maxlength="18" value="Player" />
+        </div>
+
+        <div class="menu-section">
+          <label>Duck skin</label>
+          <div id="skinGrid" class="skin-grid"></div>
+        </div>
+
+        <div class="menu-section">
+          <label for="duckName">Duck's name</label>
+          <input id="duckName" type="text" maxlength="18" value="Sir Quackington" />
+        </div>
+
+        <div class="menu-section menu-actions">
+          <button id="playBtn" class="primary">Play</button>
+          <button id="howBtn" class="ghost">How to play</button>
+        </div>
+
+        <div id="howPanel" class="how hidden">
+          <strong>Controls</strong>
+          <ul>
+            <li><b>Move</b>: WASD / Arrow keys</li>
+            <li><b>Throw peel</b>: Space or Left-click</li>
+            <li><b>Collect peels</b>: walk to the Banana Hut</li>
+            <li><b>Camera rotate</b>: Right-click drag or Q/E</li>
+            <li><b>Restart</b>: R</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div id="gameover" class="hidden">
+      <div class="menu-card small">
+        <h2 id="gameoverTitle">The duck got you!</h2>
+        <p id="gameoverSub"></p>
+        <div class="menu-actions">
+          <button id="playAgainBtn" class="primary">Play again</button>
+          <button id="toMenuBtn" class="ghost">Main menu</button>
+        </div>
+      </div>
+    </div>
   </div>
 
-  <script src="duck.js"></script>
-  <script src="game.js"></script>
+  <script type="module" src="game3d.js"></script>
 </body>
 </html>
