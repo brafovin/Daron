@@ -304,7 +304,7 @@ const player = {
   obj: new THREE.Group(),
   pos: new THREE.Vector3(10, 0, 10),
   vel: new THREE.Vector3(),
-  speed: 10,
+  speed: 13,
   facing: Math.PI,
   radius: 0.6,
   height: 1.8,
@@ -321,10 +321,54 @@ function buildPlayer() {
   const hairMat = new THREE.MeshStandardMaterial({ color: 0x3b2e1a, roughness: 0.9 });
   const torso = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.9, 0.4), shirtMat);
   torso.position.y = 1.1; torso.castShadow = true; g.add(torso);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 12), skinMat);
-  head.position.y = 1.75; head.castShadow = true; g.add(head);
-  const hair = new THREE.Mesh(new THREE.SphereGeometry(0.29, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2), hairMat);
-  hair.position.y = 1.78; g.add(hair);
+  // Head group so we can attach face features that rotate with the head.
+  const headGroup = new THREE.Group();
+  headGroup.position.y = 1.75;
+  g.add(headGroup);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 20, 16), skinMat);
+  head.castShadow = true;
+  headGroup.add(head);
+  const hair = new THREE.Mesh(
+    new THREE.SphereGeometry(0.29, 18, 14, 0, Math.PI * 2, 0, Math.PI / 2),
+    hairMat
+  );
+  hair.position.y = 0.04;
+  headGroup.add(hair);
+  // Face features. The player's "forward" is +X in local space (the group
+  // is later rotated so facing lines up), so eyes/nose/mouth point +X.
+  const eyeWhiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.3 });
+  const pupilMat = new THREE.MeshStandardMaterial({ color: 0x1a2a6c, roughness: 0.3 });
+  const browMat = new THREE.MeshStandardMaterial({ color: 0x2a1f10 });
+  for (const side of [-1, 1]) {
+    const sclera = new THREE.Mesh(new THREE.SphereGeometry(0.06, 14, 10), eyeWhiteMat);
+    sclera.position.set(0.23, 0.06, side * 0.09);
+    headGroup.add(sclera);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.032, 10, 8), pupilMat);
+    pupil.position.set(0.28, 0.06, side * 0.09);
+    headGroup.add(pupil);
+    const brow = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.02, 0.09), browMat);
+    brow.position.set(0.26, 0.13, side * 0.09);
+    brow.rotation.x = side * 0.15;
+    headGroup.add(brow);
+    // Ear
+    const ear = new THREE.Mesh(new THREE.SphereGeometry(0.055, 10, 8), skinMat);
+    ear.scale.set(0.8, 1, 0.6);
+    ear.position.set(0, -0.02, side * 0.27);
+    headGroup.add(ear);
+  }
+  const nose = new THREE.Mesh(
+    new THREE.ConeGeometry(0.035, 0.1, 10),
+    new THREE.MeshStandardMaterial({ color: 0xe8b894, roughness: 0.9 })
+  );
+  nose.rotation.z = -Math.PI / 2;
+  nose.position.set(0.28, -0.01, 0);
+  headGroup.add(nose);
+  const mouth = new THREE.Mesh(
+    new THREE.BoxGeometry(0.02, 0.02, 0.09),
+    new THREE.MeshStandardMaterial({ color: 0x8b2f1f })
+  );
+  mouth.position.set(0.27, -0.1, 0);
+  headGroup.add(mouth);
   const armL = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.85, 0.18), shirtMat);
   armL.position.set(-0.46, 1.1, 0); armL.castShadow = true; armL.name = "armL"; g.add(armL);
   const armR = armL.clone(); armR.position.x = 0.46; armR.name = "armR"; g.add(armR);
@@ -567,21 +611,41 @@ function update(dt) {
   if (keys.has("q")) cameraYaw -= dt * 2;
   if (keys.has("e")) cameraYaw += dt * 2;
 
-  if (mx || mz) {
+  // Camera-space input direction
+  let desiredX = 0, desiredZ = 0;
+  const moving = !!(mx || mz);
+  if (moving) {
     const len = Math.hypot(mx, mz);
     mx /= len; mz /= len;
-    // Rotate input into camera space
     const fwdX = Math.cos(cameraYaw);
     const fwdZ = Math.sin(cameraYaw);
     const rgtX = -Math.sin(cameraYaw);
     const rgtZ = Math.cos(cameraYaw);
-    const dx = fwdX * mz + rgtX * mx;
-    const dz = fwdZ * mz + rgtZ * mx;
-    player.pos.x += dx * player.speed * dt;
-    player.pos.z += dz * player.speed * dt;
-    player.facing = Math.atan2(dz, dx);
+    desiredX = fwdX * mz + rgtX * mx;
+    desiredZ = fwdZ * mz + rgtZ * mx;
+  }
+
+  // Velocity-based movement: accelerate toward target, damp when no input.
+  const maxSpeed = player.speed;
+  const accel = moving ? 55 : 0;
+  const damp = moving ? 2.5 : 10; // higher damp when not holding input = stops faster
+  const targetVX = desiredX * maxSpeed;
+  const targetVZ = desiredZ * maxSpeed;
+  player.vel.x += (targetVX - player.vel.x) * Math.min(1, accel * dt / maxSpeed);
+  player.vel.z += (targetVZ - player.vel.z) * Math.min(1, accel * dt / maxSpeed);
+  player.vel.x *= Math.max(0, 1 - damp * dt);
+  player.vel.z *= Math.max(0, 1 - damp * dt);
+  player.pos.x += player.vel.x * dt;
+  player.pos.z += player.vel.z * dt;
+
+  // Smooth facing — rotate toward velocity direction, never snap.
+  const movingFast = Math.hypot(player.vel.x, player.vel.z) > 0.4;
+  if (movingFast) {
+    const target = Math.atan2(player.vel.z, player.vel.x);
+    player.facing = angleLerp(player.facing, target, Math.min(1, 10 * dt));
     player.walkPhase += dt * 10;
   }
+
   // Clamp to world
   const lim = WORLD - 5;
   player.pos.x = clamp(player.pos.x, -lim, lim);
@@ -593,7 +657,8 @@ function update(dt) {
   const armR = player.obj.getObjectByName("armR");
   const legL = player.obj.getObjectByName("legL");
   const legR = player.obj.getObjectByName("legR");
-  const sw = (mx || mz) ? Math.sin(player.walkPhase) * 0.5 : 0;
+  const speedFrac = Math.min(1, Math.hypot(player.vel.x, player.vel.z) / maxSpeed);
+  const sw = Math.sin(player.walkPhase) * 0.55 * speedFrac;
   if (armL) armL.rotation.x = sw;
   if (armR) armR.rotation.x = -sw;
   if (legL) legL.rotation.x = -sw;
@@ -738,4 +803,12 @@ function triggerSlip(origin) {
 }
 
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+// Interpolate between two angles along the shortest arc.
+function angleLerp(a, b, t) {
+  let d = b - a;
+  while (d > Math.PI) d -= Math.PI * 2;
+  while (d < -Math.PI) d += Math.PI * 2;
+  return a + d * t;
+}
 

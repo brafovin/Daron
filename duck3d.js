@@ -127,16 +127,35 @@ export function buildDuck(skinId = "mallard") {
   const eyeMat = mat(skin.eye, 0.2, 0.2);
   const legMat = mat(skin.beak, 0.55, 0.0);
 
-  // ---- Body (slightly flattened sphere) ----
+  // ---- Body (boat-shaped, wider at the chest, tapering to tail) ----
   const body = new THREE.Mesh(
-    new THREE.SphereGeometry(1, 28, 22),
+    new THREE.SphereGeometry(1, 32, 24),
     bodyMat
   );
-  body.scale.set(1.55, 1.1, 1.05);
-  body.position.set(0, 1.15, 0);
+  body.scale.set(1.7, 1.05, 1.1);
+  body.position.set(0.05, 1.1, 0);
   body.castShadow = true;
   body.receiveShadow = true;
   root.add(body);
+
+  // Belly — flatter underside (subtle lighter patch)
+  const belly = new THREE.Mesh(
+    new THREE.SphereGeometry(0.95, 24, 16),
+    mat(lighten(skin.body, 0.1), roughness, metalness)
+  );
+  belly.scale.set(1.4, 0.45, 1.0);
+  belly.position.set(0.15, 0.55, 0);
+  root.add(belly);
+
+  // Rump / back hump (gives the classic duck silhouette)
+  const rump = new THREE.Mesh(
+    new THREE.SphereGeometry(0.72, 20, 16),
+    bodyMat
+  );
+  rump.scale.set(1.2, 0.75, 0.95);
+  rump.position.set(-0.7, 1.45, 0);
+  rump.castShadow = true;
+  root.add(rump);
 
   // Breast patch (mallard-only)
   if (skin.breast) {
@@ -195,25 +214,42 @@ export function buildDuck(skinId = "mallard") {
   forehead.scale.set(0.9, 0.7, 0.9);
   head.add(forehead);
 
-  // Beak — upper and lower bill
+  // Beak — flat mallard-style spatula (wide, flat, rounded tip).
+  // Upper mandible: flattened scaled sphere rather than a cone.
   const beakUpper = new THREE.Mesh(
-    new THREE.ConeGeometry(0.32, 0.95, 18),
+    new THREE.SphereGeometry(0.5, 24, 18),
     beakMat
   );
-  beakUpper.rotation.z = -Math.PI / 2;
-  beakUpper.scale.set(1.1, 1.0, 0.6);
-  beakUpper.position.set(0.78, -0.02, 0);
+  beakUpper.scale.set(1.7, 0.28, 0.95);
+  beakUpper.position.set(0.82, 0.0, 0);
   beakUpper.castShadow = true;
   head.add(beakUpper);
 
+  // Lower mandible slightly smaller and darker
   const beakLower = new THREE.Mesh(
-    new THREE.ConeGeometry(0.28, 0.85, 18),
-    mat(darken(skin.beak, 0.15), 0.5)
+    new THREE.SphereGeometry(0.45, 22, 16),
+    mat(darken(skin.beak, 0.18), 0.55)
   );
-  beakLower.rotation.z = -Math.PI / 2;
-  beakLower.scale.set(1.0, 1.0, 0.5);
-  beakLower.position.set(0.74, -0.16, 0);
+  beakLower.scale.set(1.55, 0.18, 0.85);
+  beakLower.position.set(0.78, -0.14, 0);
   head.add(beakLower);
+
+  // Dark "nail" at the tip of the bill (mallards have this)
+  const nail = new THREE.Mesh(
+    new THREE.SphereGeometry(0.1, 14, 12),
+    mat(darken(skin.beak, 0.4), 0.4)
+  );
+  nail.scale.set(1.1, 0.35, 0.7);
+  nail.position.set(1.6, -0.03, 0);
+  head.add(nail);
+
+  // Thin seam line between upper and lower bill
+  const seam = new THREE.Mesh(
+    new THREE.BoxGeometry(0.85, 0.02, 0.8),
+    mat(darken(skin.beak, 0.5), 0.6)
+  );
+  seam.position.set(0.95, -0.08, 0);
+  head.add(seam);
 
   // Nostrils
   const nostril = new THREE.Mesh(
@@ -239,20 +275,44 @@ export function buildDuck(skinId = "mallard") {
     eyeGroup.add(pupil);
   }
 
-  // ---- Wings ----
-  const wingGeom = new THREE.SphereGeometry(0.7, 20, 16);
-  const leftWing = new THREE.Mesh(wingGeom, wingMat);
-  leftWing.scale.set(1.3, 0.35, 0.7);
+  // ---- Wings (base shape + layered primary feathers) ----
+  const wingGeom = new THREE.SphereGeometry(0.75, 22, 16);
+  const leftWing = new THREE.Group();
+  leftWing.name = "leftWing";
+  const leftWingBase = new THREE.Mesh(wingGeom, wingMat);
+  leftWingBase.scale.set(1.45, 0.32, 0.7);
+  leftWingBase.castShadow = true;
+  leftWing.add(leftWingBase);
+  // Primary flight feathers — 4 overlapping plates at the tip
+  const featherMat = mat(darken(skin.wing, 0.18), roughness);
+  for (let i = 0; i < 4; i++) {
+    const feather = new THREE.Mesh(
+      new THREE.SphereGeometry(0.28, 12, 10),
+      featherMat
+    );
+    feather.scale.set(1.3, 0.12, 0.45);
+    feather.position.set(-0.4 - i * 0.18, -0.05, 0.15 + i * 0.04);
+    feather.rotation.y = 0.15;
+    feather.rotation.z = -0.3 - i * 0.08;
+    leftWing.add(feather);
+  }
+  // Covert feather layer on top of the wing
+  const covert = new THREE.Mesh(
+    new THREE.SphereGeometry(0.55, 18, 14),
+    mat(lighten(skin.wing, 0.05), roughness)
+  );
+  covert.scale.set(1.15, 0.14, 0.5);
+  covert.position.set(0.25, 0.18, 0);
+  leftWing.add(covert);
   leftWing.position.set(-0.05, 1.4, 0.95);
   leftWing.rotation.x = -0.15;
   leftWing.rotation.z = -0.1;
-  leftWing.castShadow = true;
-  leftWing.name = "leftWing";
   root.add(leftWing);
 
   const rightWing = leftWing.clone();
   rightWing.position.z = -0.95;
   rightWing.rotation.x = 0.15;
+  rightWing.scale.z = -1; // mirror along Z
   rightWing.name = "rightWing";
   root.add(rightWing);
 
@@ -268,15 +328,24 @@ export function buildDuck(skinId = "mallard") {
     }
   }
 
-  // ---- Tail ----
+  // ---- Tail — pointed and slightly upswept ----
   const tail = new THREE.Mesh(
-    new THREE.ConeGeometry(0.4, 0.9, 18),
+    new THREE.ConeGeometry(0.45, 1.1, 18),
     bodyMat
   );
-  tail.rotation.z = Math.PI / 2;
-  tail.position.set(-1.55, 1.3, 0);
+  tail.rotation.z = Math.PI / 2 + 0.25;
+  tail.scale.set(1, 0.45, 1);
+  tail.position.set(-1.7, 1.55, 0);
   tail.castShadow = true;
   root.add(tail);
+  // Darker tail tip band
+  const tailTip = new THREE.Mesh(
+    new THREE.SphereGeometry(0.18, 12, 10),
+    mat(darken(skin.body, 0.25), roughness)
+  );
+  tailTip.scale.set(0.9, 0.55, 1);
+  tailTip.position.set(-2.05, 1.65, 0);
+  root.add(tailTip);
 
   // Mallard curled tail feather
   if (skinId === "mallard") {
