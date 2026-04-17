@@ -32,7 +32,11 @@
     beakColor: "#f4861f",
     eyeColor: "#1a1a1a",
     wingColor: "#eab308",
+    headColor: null,
+    neckRing: null,
+    breastColor: null,
     hat: "none",
+    skin: "none",
     name: "Sir Quackington",
   };
 
@@ -95,6 +99,7 @@
   const panel = {
     presets: document.getElementById("presets"),
     bodyColor: document.getElementById("bodyColor"),
+    headColor: document.getElementById("headColor"),
     beakColor: document.getElementById("beakColor"),
     eyeColor: document.getElementById("eyeColor"),
     wingColor: document.getElementById("wingColor"),
@@ -102,6 +107,7 @@
     sizeVal: document.getElementById("sizeVal"),
     speed: document.getElementById("speed"),
     speedVal: document.getElementById("speedVal"),
+    skin: document.getElementById("skin"),
     hat: document.getElementById("hat"),
     duckName: document.getElementById("duckName"),
   };
@@ -118,14 +124,26 @@
     });
   }
 
+  // Preset-only attributes that aren't color pickers (neck ring, breast patch)
+  // are remembered here so a preset's mallard-specific details survive when
+  // the user tweaks the color pickers afterwards.
+  let presetExtras = { headColor: null, neckRing: null, breastColor: null };
+
   function applyPreset(key) {
     const p = window.DuckArt.PRESETS[key];
     if (!p) return;
     panel.bodyColor.value = p.bodyColor;
+    panel.headColor.value = p.headColor || p.bodyColor;
     panel.beakColor.value = p.beakColor;
     panel.eyeColor.value = p.eyeColor;
     panel.wingColor.value = p.wingColor;
-    panel.hat.value = p.hat;
+    panel.hat.value = p.hat || "none";
+    panel.skin.value = p.skin || "none";
+    presetExtras = {
+      headColor: p.headColor || null,
+      neckRing: p.neckRing || null,
+      breastColor: p.breastColor || null,
+    };
     syncDuckFromPanel();
     [...panel.presets.children].forEach((c) =>
       c.classList.toggle("active", c.textContent === p.name)
@@ -134,24 +152,31 @@
 
   function syncDuckFromPanel() {
     duck.bodyColor = panel.bodyColor.value;
+    duck.headColor = panel.headColor.value;
     duck.beakColor = panel.beakColor.value;
     duck.eyeColor = panel.eyeColor.value;
     duck.wingColor = panel.wingColor.value;
     duck.size = parseInt(panel.size.value, 10);
     duck.speed = parseInt(panel.speed.value, 10);
     duck.hat = panel.hat.value;
+    duck.skin = panel.skin.value;
+    // Neck ring / breast patch only apply for mallard-ish ducks; keep them
+    // available if the user is still on a preset that uses them.
+    duck.neckRing = duck.skin === "mallard" ? (presetExtras.neckRing || "#ffffff") : null;
+    duck.breastColor = duck.skin === "mallard" ? (presetExtras.breastColor || "#6b2f1f") : null;
     duck.name = panel.duckName.value || "Duck";
     panel.sizeVal.textContent = duck.size;
     panel.speedVal.textContent = (duck.speed / 100).toFixed(1);
   }
 
   [
-    panel.bodyColor, panel.beakColor, panel.eyeColor,
-    panel.wingColor, panel.size, panel.speed, panel.hat, panel.duckName,
+    panel.bodyColor, panel.headColor, panel.beakColor, panel.eyeColor,
+    panel.wingColor, panel.size, panel.speed, panel.skin, panel.hat,
+    panel.duckName,
   ].forEach((el) => el.addEventListener("input", syncDuckFromPanel));
 
   buildPresetButtons();
-  applyPreset("classic");
+  applyPreset("mallard");
   syncDuckFromPanel();
 
   function throwBananaTowardMouse() {
@@ -428,11 +453,13 @@
     drawPlayer(ctx, player);
 
     // Duck
+    const slipping = duck.slipTimer > 0 || duck.stunTimer > 0;
     const slipState = {
-      squashX: duck.slipTimer > 0 ? 1.15 : duck.stunTimer > 0 ? 1.1 : 1,
-      squashY: duck.slipTimer > 0 ? 0.85 : duck.stunTimer > 0 ? 0.9 : 1,
-      tilt: duck.spin * 0.25,
+      squashX: duck.slipTimer > 0 ? 1.25 : duck.stunTimer > 0 ? 1.1 : 1,
+      squashY: duck.slipTimer > 0 ? 0.75 : duck.stunTimer > 0 ? 0.9 : 1,
+      tilt: duck.spin * 0.3,
       walkPhase: duck.walkPhase,
+      slipping,
     };
     window.DuckArt.drawDuck(ctx, duck, duck.x, duck.y, duck.facing, slipState);
 
